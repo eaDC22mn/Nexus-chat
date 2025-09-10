@@ -2,6 +2,52 @@ import { Message, User } from '@shared/schema';
 import { formatFileSize, getFileIcon, getFileColor, isImageFile } from '@/lib/file-utils';
 import { format } from 'date-fns';
 
+interface FileMetadata {
+  id: string;
+  originalName: string;
+  mimetype: string;
+  size: number;
+  path: string;
+  uploadedAt: string;
+}
+
+interface LinkMetadata {
+  url: string;
+  title: string;
+  description: string;
+  image?: string | null;
+  domain: string;
+}
+
+interface GameMetadata {
+  url: string;
+  title: string;
+}
+
+// Type guards
+const isFileMetadata = (metadata: unknown): metadata is FileMetadata => {
+  return metadata !== null && 
+         typeof metadata === 'object' && 
+         'id' in metadata && 
+         'originalName' in metadata && 
+         'mimetype' in metadata;
+};
+
+const isLinkMetadata = (metadata: unknown): metadata is LinkMetadata => {
+  return metadata !== null && 
+         typeof metadata === 'object' && 
+         'url' in metadata && 
+         'title' in metadata && 
+         'domain' in metadata;
+};
+
+const isGameMetadata = (metadata: unknown): metadata is GameMetadata => {
+  return metadata !== null && 
+         typeof metadata === 'object' && 
+         'url' in metadata && 
+         'title' in metadata;
+};
+
 interface MessageBubbleProps {
   message: Message;
   user?: User;
@@ -43,7 +89,7 @@ export function MessageBubble({ message, user }: MessageBubbleProps) {
           </p>
         )}
 
-        {message.type === 'file' && message.metadata && (
+        {message.type === 'file' && isFileMetadata(message.metadata) && (
           <>
             {message.content && (
               <p className="text-sm text-foreground mb-2">{message.content}</p>
@@ -84,7 +130,7 @@ export function MessageBubble({ message, user }: MessageBubbleProps) {
           </>
         )}
 
-        {message.type === 'link' && message.metadata && (
+        {message.type === 'link' && isLinkMetadata(message.metadata) && (
           <>
             {message.content && (
               <p className="text-sm text-foreground mb-2">{message.content}</p>
@@ -117,45 +163,48 @@ export function MessageBubble({ message, user }: MessageBubbleProps) {
           </>
         )}
 
-        {message.type === 'game' && message.metadata && (
-          <>
-            {message.content && (
-              <p className="text-sm text-foreground mb-2">{message.content}</p>
-            )}
-            <div className="bg-muted rounded-lg border border-border max-w-md overflow-hidden">
-              <div className="h-40 bg-gradient-to-br from-primary/30 to-accent/30 flex items-center justify-center relative">
-                <div className="text-center">
-                  <i className="fas fa-gamepad text-3xl text-foreground mb-2"></i>
-                  <p className="text-sm font-medium" data-testid="text-game-title">{message.metadata.title}</p>
-                </div>
-                <button 
-                  className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 hover:opacity-100 transition-opacity"
-                  onClick={() => window.open(message.metadata.url, '_blank')}
-                  data-testid="button-play-game"
-                >
-                  <div className="w-12 h-12 bg-primary rounded-full flex items-center justify-center">
-                    <i className="fas fa-play text-primary-foreground"></i>
-                  </div>
-                </button>
-              </div>
-              <div className="p-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="font-medium text-sm">{message.metadata.title}</h4>
-                    <p className="text-xs text-muted-foreground">Browser Game • Free to Play</p>
+        {message.type === 'game' && isGameMetadata(message.metadata) && (() => {
+          const gameData = message.metadata;
+          return (
+            <>
+              {message.content && (
+                <p className="text-sm text-foreground mb-2">{message.content}</p>
+              )}
+              <div className="bg-muted rounded-lg border border-border max-w-md overflow-hidden">
+                <div className="h-40 bg-gradient-to-br from-primary/30 to-accent/30 flex items-center justify-center relative">
+                  <div className="text-center">
+                    <i className="fas fa-gamepad text-3xl text-foreground mb-2"></i>
+                    <p className="text-sm font-medium" data-testid="text-game-title">{gameData.title}</p>
                   </div>
                   <button 
-                    className="px-3 py-1.5 bg-primary text-primary-foreground text-xs rounded-md hover:bg-primary/90 transition-colors"
-                    onClick={() => window.open(message.metadata.url, '_blank')}
-                    data-testid="button-play-now"
+                    className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 hover:opacity-100 transition-opacity"
+                    onClick={() => window.open(gameData.url, '_blank')}
+                    data-testid="button-play-game"
                   >
-                    Play Now
+                    <div className="w-12 h-12 bg-primary rounded-full flex items-center justify-center">
+                      <i className="fas fa-play text-primary-foreground"></i>
+                    </div>
                   </button>
                 </div>
+                <div className="p-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-medium text-sm">{gameData.title}</h4>
+                      <p className="text-xs text-muted-foreground">Browser Game • Free to Play</p>
+                    </div>
+                    <button 
+                      className="px-3 py-1.5 bg-primary text-primary-foreground text-xs rounded-md hover:bg-primary/90 transition-colors"
+                      onClick={() => window.open(gameData.url, '_blank')}
+                      data-testid="button-play-now"
+                    >
+                      Play Now
+                    </button>
+                  </div>
+                </div>
               </div>
-            </div>
-          </>
-        )}
+            </>
+          );
+        })()}
       </div>
     </div>
   );

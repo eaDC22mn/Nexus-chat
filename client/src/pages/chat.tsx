@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Room, Message, User } from '@shared/schema';
 import { useWebSocket } from '@/hooks/use-websocket';
@@ -38,6 +38,7 @@ export default function Chat() {
       setMessages(roomMessages);
     }
   }, [roomMessages]);
+
 
   useEffect(() => {
     if (lastMessage) {
@@ -85,7 +86,7 @@ export default function Chat() {
     }
   };
 
-  const handleRoomChange = async (room: Room) => {
+  const handleRoomChange = useCallback(async (room: Room) => {
     setCurrentRoom(room);
     setMessages([]);
 
@@ -108,7 +109,7 @@ export default function Chat() {
         console.error('Failed to join room:', error);
       }
     }
-  };
+  }, [currentUser, isConnected, sendMessage]);
 
   const handleSendMessage = (content: string, type: string = 'text', metadata?: any) => {
     if (!currentUser || !currentRoom || !isConnected) return;

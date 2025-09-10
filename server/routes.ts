@@ -2,7 +2,7 @@ import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
-import { insertUserSchema, insertMessageSchema, insertRoomMemberSchema } from "@shared/schema";
+import { insertUserSchema, insertRoomSchema, insertMessageSchema, insertRoomMemberSchema } from "@shared/schema";
 import multer from "multer";
 import path from "path";
 import fs from "fs";

@@ -14,6 +14,8 @@ export interface IStorage {
   getRoomByName(name: string): Promise<Room | undefined>;
   createRoom(room: InsertRoom): Promise<Room>;
   getAllRooms(): Promise<Room[]>;
+  getUserRooms(userId: string): Promise<Room[]>;
+  getOrCreateDirectRoom(user1Id: string, user2Id: string): Promise<Room>;
 
   // Message operations
   getMessage(id: string): Promise<Message | undefined>;
@@ -24,6 +26,7 @@ export interface IStorage {
   addRoomMember(member: InsertRoomMember): Promise<RoomMember>;
   getRoomMembers(roomId: string): Promise<User[]>;
   isUserInRoom(userId: string, roomId: string): Promise<boolean>;
+  joinGlobalRooms(userId: string): Promise<void>;
 }
 
 export class MemStorage implements IStorage {
@@ -43,21 +46,37 @@ export class MemStorage implements IStorage {
   }
 
   private async initializeDefaultData() {
-    const generalRoom = await this.createRoom({
+    // Create global chat room
+    const globalRoom = await this.createRoom({
+      name: "Global Chat",
+      description: "Welcome to the global chat! Chat with everyone here.",
+      type: "global",
+      color: "#10B981",
+      isActive: 1,
+    });
+
+    // Create other default rooms
+    await this.createRoom({
       name: "General",
       description: "General discussion room",
+      type: "personal",
+      color: "#4F46E5",
       isActive: 1,
     });
 
     await this.createRoom({
       name: "Gaming",
       description: "Gaming discussions and sharing",
+      type: "personal", 
+      color: "#8B5CF6",
       isActive: 1,
     });
 
     await this.createRoom({
       name: "File Sharing",
       description: "Share and discuss files",
+      type: "personal",
+      color: "#F59E0B",
       isActive: 1,
     });
   }
@@ -114,6 +133,9 @@ export class MemStorage implements IStorage {
       ...insertRoom, 
       id,
       description: insertRoom.description || null,
+      type: insertRoom.type || 'personal',
+      color: insertRoom.color || '#4F46E5',
+      createdBy: insertRoom.createdBy || null,
       isActive: insertRoom.isActive || 1,
       createdAt: new Date(),
     };
@@ -123,6 +145,71 @@ export class MemStorage implements IStorage {
 
   async getAllRooms(): Promise<Room[]> {
     return Array.from(this.rooms.values()).filter(room => room.isActive === 1);
+  }
+
+  async getUserRooms(userId: string): Promise<Room[]> {
+    const userRoomIds = Array.from(this.roomMembers.values())
+      .filter(member => member.userId === userId)
+      .map(member => member.roomId);
+    
+    return Array.from(this.rooms.values())
+      .filter(room => room.isActive === 1 && userRoomIds.includes(room.id))
+      .sort((a, b) => {
+        // Global rooms first, then by creation date
+        if (a.type === 'global' && b.type !== 'global') return -1;
+        if (b.type === 'global' && a.type !== 'global') return 1;
+        return new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime();
+      });
+  }
+
+  async getOrCreateDirectRoom(user1Id: string, user2Id: string): Promise<Room> {
+    // Look for existing direct message room between these users
+    const existingRoom = Array.from(this.rooms.values()).find(room => {
+      if (room.type !== 'direct') return false;
+      
+      const members = Array.from(this.roomMembers.values())
+        .filter(member => member.roomId === room.id)
+        .map(member => member.userId);
+      
+      return members.length === 2 && 
+             members.includes(user1Id) && 
+             members.includes(user2Id);
+    });
+
+    if (existingRoom) {
+      return existingRoom;
+    }
+
+    // Create new direct message room
+    const user1 = await this.getUser(user1Id);
+    const user2 = await this.getUser(user2Id);
+    
+    const roomName = `${user1?.username} & ${user2?.username}`;
+    const room = await this.createRoom({
+      name: roomName,
+      description: `Direct messages between ${user1?.username} and ${user2?.username}`,
+      type: 'direct',
+      color: '#6B7280',
+      createdBy: user1Id,
+    });
+
+    // Add both users to the room
+    await this.addRoomMember({ roomId: room.id, userId: user1Id });
+    await this.addRoomMember({ roomId: room.id, userId: user2Id });
+
+    return room;
+  }
+
+  async joinGlobalRooms(userId: string): Promise<void> {
+    const globalRooms = Array.from(this.rooms.values())
+      .filter(room => room.type === 'global' && room.isActive === 1);
+    
+    for (const room of globalRooms) {
+      const isAlreadyMember = await this.isUserInRoom(userId, room.id);
+      if (!isAlreadyMember) {
+        await this.addRoomMember({ roomId: room.id, userId });
+      }
+    }
   }
 
   async getMessage(id: string): Promise<Message | undefined> {

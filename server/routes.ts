@@ -39,6 +39,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const user = await storage.createUser(userData);
+      
+      // Automatically join global rooms
+      await storage.joinGlobalRooms(user.id);
+      
       res.json(user);
     } catch (error: any) {
       res.status(400).json({ message: error.message });
@@ -57,8 +61,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Room routes
   app.get("/api/rooms", async (req, res) => {
     try {
-      const rooms = await storage.getAllRooms();
-      res.json(rooms);
+      const { userId } = req.query;
+      if (userId) {
+        const rooms = await storage.getUserRooms(userId as string);
+        res.json(rooms);
+      } else {
+        const rooms = await storage.getAllRooms();
+        res.json(rooms);
+      }
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/rooms", async (req, res) => {
+    try {
+      const roomData = insertRoomSchema.parse(req.body);
+      const room = await storage.createRoom(roomData);
+      
+      // Add creator to the room
+      if (roomData.createdBy) {
+        await storage.addRoomMember({ roomId: room.id, userId: roomData.createdBy });
+      }
+      
+      res.json(room);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/rooms/direct", async (req, res) => {
+    try {
+      const { user1Id, user2Id } = req.body;
+      if (!user1Id || !user2Id) {
+        return res.status(400).json({ message: "Both user IDs are required" });
+      }
+      
+      const room = await storage.getOrCreateDirectRoom(user1Id, user2Id);
+      res.json(room);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }

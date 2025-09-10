@@ -15,6 +15,9 @@ export const rooms = pgTable("rooms", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
   description: text("description"),
+  type: text("type").notNull().default("personal"), // global, personal, direct
+  color: text("color").default("#4F46E5"), // hex color for room theme
+  createdBy: varchar("created_by"), // user who created the room
   isActive: integer("is_active").default(1),
   createdAt: timestamp("created_at").defaultNow(),
 });

@@ -29,6 +29,7 @@ export const messages = pgTable("messages", {
   content: text("content"),
   type: text("type").notNull().default("text"), // text, file, link, game, system
   metadata: jsonb("metadata"), // for file info, link previews, game data
+  replyTo: varchar("reply_to"), // id of message being replied to
   timestamp: timestamp("timestamp").defaultNow(),
 });
 

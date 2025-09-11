@@ -20,6 +20,7 @@ export interface IStorage {
   // Message operations
   getMessage(id: string): Promise<Message | undefined>;
   getMessagesByRoom(roomId: string, limit?: number): Promise<Message[]>;
+  getMessagesWithReplies(roomId: string, limit?: number): Promise<(Message & { replyToMessage?: Message })[]>;
   createMessage(message: InsertMessage): Promise<Message>;
 
   // Room member operations
@@ -223,6 +224,18 @@ export class MemStorage implements IStorage {
       .slice(-limit);
   }
 
+  async getMessagesWithReplies(roomId: string, limit: number = 50): Promise<(Message & { replyToMessage?: Message })[]> {
+    const messages = await this.getMessagesByRoom(roomId, limit);
+    
+    return messages.map(message => {
+      const replyToMessage = message.replyTo ? this.messages.get(message.replyTo) : undefined;
+      return {
+        ...message,
+        replyToMessage,
+      };
+    });
+  }
+
   async createMessage(insertMessage: InsertMessage): Promise<Message> {
     const id = randomUUID();
     const message: Message = { 
@@ -231,6 +244,7 @@ export class MemStorage implements IStorage {
       content: insertMessage.content || null,
       type: insertMessage.type || 'text',
       metadata: insertMessage.metadata || null,
+      replyTo: insertMessage.replyTo || null,
       timestamp: new Date(),
     };
     this.messages.set(id, message);

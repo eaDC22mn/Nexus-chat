@@ -5,11 +5,12 @@ import { useQuery } from '@tanstack/react-query';
 
 interface MessageListProps {
   roomId: string | null;
-  messages: Message[];
+  messages: (Message & { replyToMessage?: Message })[];
   onDrop: (files: FileList) => void;
+  onReply?: (message: Message) => void;
 }
 
-export function MessageList({ roomId, messages, onDrop }: MessageListProps) {
+export function MessageList({ roomId, messages, onDrop, onReply }: MessageListProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const { data: users = [] } = useQuery<User[]>({
     queryKey: ['/api/users/online'],
@@ -83,6 +84,7 @@ export function MessageList({ roomId, messages, onDrop }: MessageListProps) {
             key={message.id}
             message={message}
             user={getUserById(message.userId)}
+            onReply={onReply}
           />
         ))
       )}

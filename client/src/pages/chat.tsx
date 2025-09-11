@@ -16,10 +16,11 @@ import { Label } from '@/components/ui/label';
 export default function Chat() {
   const [currentRoom, setCurrentRoom] = useState<Room | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<(Message & { replyToMessage?: Message })[]>([]);
   const [showLoginModal, setShowLoginModal] = useState(true);
   const [username, setUsername] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
 
   const { isConnected, lastMessage, sendMessage } = useWebSocket('/ws');
 
@@ -28,24 +29,39 @@ export default function Chat() {
     refetchInterval: 10000,
   });
 
-  const { data: roomMessages = [] } = useQuery<Message[]>({
+  const { data: roomMessages = [] } = useQuery<(Message & { replyToMessage?: Message })[]>({
     queryKey: ['/api/rooms', currentRoom?.id, 'messages'],
     enabled: !!currentRoom?.id,
   });
 
+  // Initialize messages when room changes or when roomMessages are first loaded
   useEffect(() => {
-    if (roomMessages) {
+    if (roomMessages.length > 0 && currentRoom?.id) {
       setMessages(roomMessages);
     }
-  }, [roomMessages]);
+  }, [roomMessages, currentRoom?.id]);
 
-
+  // Handle real-time WebSocket messages
   useEffect(() => {
     if (lastMessage) {
       switch (lastMessage.type) {
         case 'new_message':
           if (lastMessage.message.roomId === currentRoom?.id) {
-            setMessages(prev => [...prev, lastMessage.message]);
+            setMessages(prev => {
+              // Prevent duplicate messages
+              const messageExists = prev.some(msg => msg.id === lastMessage.message.id);
+              if (messageExists) return prev;
+              
+              // Enrich the message with reply context if it's a reply
+              const enrichedMessage = {
+                ...lastMessage.message,
+                replyToMessage: lastMessage.message.replyTo 
+                  ? prev.find(m => m.id === lastMessage.message.replyTo) 
+                  : undefined
+              };
+              
+              return [...prev, enrichedMessage];
+            });
           }
           break;
         case 'user_joined':
@@ -111,7 +127,7 @@ export default function Chat() {
     }
   }, [currentUser, isConnected, sendMessage]);
 
-  const handleSendMessage = (content: string, type: string = 'text', metadata?: any) => {
+  const handleSendMessage = (content: string, type: string = 'text', metadata?: any, replyTo?: string) => {
     if (!currentUser || !currentRoom || !isConnected) return;
 
     sendMessage({
@@ -121,7 +137,16 @@ export default function Chat() {
       content,
       messageType: type,
       metadata,
+      replyTo,
     });
+  };
+
+  const handleReply = (message: Message) => {
+    setReplyingTo(message);
+  };
+
+  const handleCancelReply = () => {
+    setReplyingTo(null);
   };
 
   const handleFileUpload = async (files: FileList) => {
@@ -156,12 +181,15 @@ export default function Chat() {
           roomId={currentRoom?.id || null}
           messages={messages}
           onDrop={handleFileUpload}
+          onReply={handleReply}
         />
 
         <MessageInput
           onSendMessage={handleSendMessage}
           isConnected={isConnected}
           onlineCount={onlineUsers.length}
+          replyingTo={replyingTo}
+          onCancelReply={handleCancelReply}
         />
       </div>
 

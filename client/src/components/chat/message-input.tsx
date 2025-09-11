@@ -1,17 +1,20 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { FileUploadModal } from './file-upload-modal';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { Message } from '@shared/schema';
 
 interface MessageInputProps {
-  onSendMessage: (content: string, type?: string, metadata?: any) => void;
+  onSendMessage: (content: string, type?: string, metadata?: any, replyTo?: string) => void;
   isConnected: boolean;
   onlineCount: number;
+  replyingTo?: Message | null;
+  onCancelReply?: () => void;
 }
 
-export function MessageInput({ onSendMessage, isConnected, onlineCount }: MessageInputProps) {
+export function MessageInput({ onSendMessage, isConnected, onlineCount, replyingTo, onCancelReply }: MessageInputProps) {
   const [message, setMessage] = useState('');
   const [isFileModalOpen, setIsFileModalOpen] = useState(false);
   const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
@@ -23,8 +26,11 @@ export function MessageInput({ onSendMessage, isConnected, onlineCount }: Messag
 
   const handleSendMessage = () => {
     if (message.trim() && isConnected) {
-      onSendMessage(message.trim());
+      onSendMessage(message.trim(), 'text', undefined, replyingTo?.id);
       setMessage('');
+      if (onCancelReply) {
+        onCancelReply();
+      }
     }
   };
 
@@ -48,7 +54,7 @@ export function MessageInput({ onSendMessage, isConnected, onlineCount }: Messag
 
         if (response.ok) {
           const fileInfo = await response.json();
-          onSendMessage('', 'file', fileInfo);
+          onSendMessage('', 'file', fileInfo, replyingTo?.id);
         }
       } catch (error) {
         console.error('File upload error:', error);
@@ -69,7 +75,7 @@ export function MessageInput({ onSendMessage, isConnected, onlineCount }: Messag
 
       if (response.ok) {
         const preview = await response.json();
-        onSendMessage('Shared a link', 'link', preview);
+        onSendMessage('Shared a link', 'link', preview, replyingTo?.id);
         setLinkUrl('');
         setIsLinkModalOpen(false);
       }
@@ -86,7 +92,7 @@ export function MessageInput({ onSendMessage, isConnected, onlineCount }: Messag
       title: gameTitle,
     };
 
-    onSendMessage(`Shared a game: ${gameTitle}`, 'game', gameData);
+    onSendMessage(`Shared a game: ${gameTitle}`, 'game', gameData, replyingTo?.id);
     setGameUrl('');
     setGameTitle('');
     setIsGameModalOpen(false);
@@ -94,6 +100,29 @@ export function MessageInput({ onSendMessage, isConnected, onlineCount }: Messag
 
   return (
     <div className="bg-card border-t border-border p-4">
+      {/* Reply Context */}
+      {replyingTo && (
+        <div className="mb-3 p-3 bg-muted rounded-lg border border-border">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-medium text-muted-foreground">
+              Replying to @{replyingTo.userId}
+            </span>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={onCancelReply}
+              className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
+              data-testid="button-cancel-reply"
+            >
+              <i className="fas fa-times text-xs"></i>
+            </Button>
+          </div>
+          <div className="text-sm text-muted-foreground truncate">
+            {replyingTo.content}
+          </div>
+        </div>
+      )}
+
       {/* Message Input Area */}
       <div className="flex items-end space-x-3">
         {/* File Actions */}

@@ -107,7 +107,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/rooms/:id/messages", async (req, res) => {
     try {
       const { id } = req.params;
-      const messages = await storage.getMessagesByRoom(id);
+      const messages = await storage.getMessagesWithReplies(id);
       res.json(messages);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -231,6 +231,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               content: message.content,
               type: message.messageType || 'text',
               metadata: message.metadata || null,
+              replyTo: message.replyTo || null,
             });
 
             // Broadcast message to room

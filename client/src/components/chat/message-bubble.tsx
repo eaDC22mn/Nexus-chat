@@ -49,11 +49,12 @@ const isGameMetadata = (metadata: unknown): metadata is GameMetadata => {
 };
 
 interface MessageBubbleProps {
-  message: Message;
+  message: Message & { replyToMessage?: Message };
   user?: User;
+  onReply?: (message: Message) => void;
 }
 
-export function MessageBubble({ message, user }: MessageBubbleProps) {
+export function MessageBubble({ message, user, onReply }: MessageBubbleProps) {
   const timestamp = format(new Date(message.timestamp!), 'h:mm a');
 
   if (message.type === 'system') {
@@ -67,13 +68,25 @@ export function MessageBubble({ message, user }: MessageBubbleProps) {
   }
 
   return (
-    <div className="chat-bubble flex items-start space-x-3" data-testid={`message-${message.id}`}>
+    <div className="chat-bubble flex items-start space-x-3 group relative" data-testid={`message-${message.id}`}>
       <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center flex-shrink-0">
         <span className="text-primary-foreground text-xs font-medium">
           {user?.username?.slice(0, 2).toUpperCase() || 'U'}
         </span>
       </div>
       <div className="flex-1 min-w-0">
+        {/* Reply Context */}
+        {message.replyToMessage && (
+          <div className="mb-2 pl-3 border-l-2 border-muted bg-muted/30 rounded-r-md py-1 px-2">
+            <div className="text-xs text-muted-foreground">
+              Replying to <span className="font-medium">@{message.replyToMessage.userId}</span>
+            </div>
+            <div className="text-sm text-muted-foreground truncate">
+              {message.replyToMessage.content}
+            </div>
+          </div>
+        )}
+
         <div className="flex items-baseline space-x-2 mb-1">
           <span className="font-medium text-sm" data-testid="text-username">
             {user?.username || 'Unknown User'}
@@ -206,6 +219,17 @@ export function MessageBubble({ message, user }: MessageBubbleProps) {
           );
         })()}
       </div>
+      
+      {/* Reply Button */}
+      {onReply && (
+        <button
+          onClick={() => onReply(message)}
+          className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity bg-muted border border-border rounded-md p-1.5 text-xs hover:bg-background"
+          data-testid="button-reply"
+        >
+          <i className="fas fa-reply"></i>
+        </button>
+      )}
     </div>
   );
 }

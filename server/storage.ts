@@ -1,5 +1,15 @@
-import { type User, type Room, type Message, type RoomMember, type InsertUser, type InsertRoom, type InsertMessage, type InsertRoomMember } from "@shared/schema";
+import { type User, type Room, type Message, type RoomMember, type InsertUser, type InsertRoom, type InsertMessage, type InsertRoomMember, type RegisterUser, type LoginUser } from "@shared/schema";
 import { randomUUID } from "crypto";
+import bcrypt from "bcrypt";
+
+// Public user type without sensitive fields
+export type PublicUser = Omit<User, 'password'>;
+
+// Utility function to sanitize user data by removing sensitive fields
+export function userToPublic(user: User): PublicUser {
+  const { password, ...publicUser } = user;
+  return publicUser;
+}
 
 export interface IStorage {
   // User operations
@@ -7,7 +17,13 @@ export interface IStorage {
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUserOnlineStatus(id: string, isOnline: number): Promise<void>;
-  getOnlineUsers(): Promise<User[]>;
+  getOnlineUsers(): Promise<PublicUser[]>;
+  
+  // Authentication operations
+  registerUser(user: RegisterUser): Promise<User>;
+  authenticateUser(credentials: LoginUser): Promise<User | null>;
+  hashPassword(password: string): Promise<string>;
+  verifyPassword(password: string, hashedPassword: string): Promise<boolean>;
 
   // Room operations
   getRoom(id: string): Promise<Room | undefined>;
@@ -25,7 +41,7 @@ export interface IStorage {
 
   // Room member operations
   addRoomMember(member: InsertRoomMember): Promise<RoomMember>;
-  getRoomMembers(roomId: string): Promise<User[]>;
+  getRoomMembers(roomId: string): Promise<PublicUser[]>;
   isUserInRoom(userId: string, roomId: string): Promise<boolean>;
   joinGlobalRooms(userId: string): Promise<void>;
 }
@@ -105,6 +121,56 @@ export class MemStorage implements IStorage {
     return user;
   }
 
+  async registerUser(registerUser: RegisterUser): Promise<User> {
+    // Check if username already exists
+    const existingUser = await this.getUserByUsername(registerUser.username);
+    if (existingUser) {
+      throw new Error("Username already exists");
+    }
+
+    // Hash the password
+    const hashedPassword = await this.hashPassword(registerUser.password);
+    
+    // Create user with hashed password
+    const id = randomUUID();
+    const user: User = {
+      id,
+      username: registerUser.username,
+      password: hashedPassword,
+      avatar: registerUser.avatar || null,
+      isOnline: 1,
+      lastSeen: new Date(),
+    };
+    
+    this.users.set(id, user);
+    return user;
+  }
+
+  async authenticateUser(credentials: LoginUser): Promise<User | null> {
+    const user = await this.getUserByUsername(credentials.username);
+    if (!user) {
+      return null;
+    }
+
+    const isPasswordValid = await this.verifyPassword(credentials.password, user.password);
+    if (!isPasswordValid) {
+      return null;
+    }
+
+    // Update online status
+    await this.updateUserOnlineStatus(user.id, 1);
+    return user;
+  }
+
+  async hashPassword(password: string): Promise<string> {
+    const saltRounds = 10;
+    return bcrypt.hash(password, saltRounds);
+  }
+
+  async verifyPassword(password: string, hashedPassword: string): Promise<boolean> {
+    return bcrypt.compare(password, hashedPassword);
+  }
+
   async updateUserOnlineStatus(id: string, isOnline: number): Promise<void> {
     const user = this.users.get(id);
     if (user) {
@@ -114,8 +180,10 @@ export class MemStorage implements IStorage {
     }
   }
 
-  async getOnlineUsers(): Promise<User[]> {
-    return Array.from(this.users.values()).filter(user => user.isOnline === 1);
+  async getOnlineUsers(): Promise<PublicUser[]> {
+    return Array.from(this.users.values())
+      .filter(user => user.isOnline === 1)
+      .map(user => userToPublic(user));
   }
 
   async getRoom(id: string): Promise<Room | undefined> {
@@ -262,14 +330,15 @@ export class MemStorage implements IStorage {
     return member;
   }
 
-  async getRoomMembers(roomId: string): Promise<User[]> {
+  async getRoomMembers(roomId: string): Promise<PublicUser[]> {
     const memberIds = Array.from(this.roomMembers.values())
       .filter(member => member.roomId === roomId)
       .map(member => member.userId);
     
     return memberIds
       .map(id => this.users.get(id))
-      .filter((user): user is User => user !== undefined);
+      .filter((user): user is User => user !== undefined)
+      .map(user => userToPublic(user));
   }
 
   async isUserInRoom(userId: string, roomId: string): Promise<boolean> {

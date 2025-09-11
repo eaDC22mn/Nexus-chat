@@ -2,7 +2,7 @@ import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
-import { insertUserSchema, insertRoomSchema, insertMessageSchema, insertRoomMemberSchema } from "@shared/schema";
+import { insertUserSchema, insertRoomSchema, insertMessageSchema, insertRoomMemberSchema, registerSchema, loginSchema } from "@shared/schema";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -28,24 +28,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
     fs.mkdirSync('uploads');
   }
 
-  // User routes
-  app.post("/api/users", async (req, res) => {
+  // Authentication routes
+  app.post("/api/auth/register", async (req, res) => {
     try {
-      const userData = insertUserSchema.parse(req.body);
-      const existingUser = await storage.getUserByUsername(userData.username);
-      
-      if (existingUser) {
-        return res.status(400).json({ message: "Username already exists" });
-      }
-
-      const user = await storage.createUser(userData);
+      const userData = registerSchema.parse(req.body);
+      const user = await storage.registerUser(userData);
       
       // Automatically join global rooms
       await storage.joinGlobalRooms(user.id);
       
-      res.json(user);
+      // Return user without password
+      const { password, ...userWithoutPassword } = user;
+      res.json(userWithoutPassword);
     } catch (error: any) {
       res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const credentials = loginSchema.parse(req.body);
+      const user = await storage.authenticateUser(credentials);
+      
+      if (!user) {
+        return res.status(401).json({ message: "Invalid username or password" });
+      }
+      
+      // Return user without password
+      const { password, ...userWithoutPassword } = user;
+      res.json(userWithoutPassword);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  // Legacy route removed for security - use /api/auth/register instead
+
+  app.post("/api/auth/logout", async (req, res) => {
+    try {
+      const { userId } = req.body;
+      if (userId) {
+        await storage.updateUserOnlineStatus(userId, 0);
+        
+        // Find and close any WebSocket connections for this user
+        connections.forEach((connection, connectionId) => {
+          if (connection.userId === userId) {
+            if (connection.roomId) {
+              broadcastToRoom(connection.roomId, {
+                type: 'user_left',
+                userId: userId,
+              });
+            }
+            connection.ws.close();
+            connections.delete(connectionId);
+          }
+        });
+      }
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
     }
   });
 

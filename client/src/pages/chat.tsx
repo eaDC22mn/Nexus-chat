@@ -19,8 +19,11 @@ export default function Chat() {
   const [messages, setMessages] = useState<(Message & { replyToMessage?: Message })[]>([]);
   const [showLoginModal, setShowLoginModal] = useState(true);
   const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [isRegistering, setIsRegistering] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   const { isConnected, lastMessage, sendMessage } = useWebSocket('/ws');
 
@@ -28,6 +31,30 @@ export default function Chat() {
     queryKey: ['/api/users/online'],
     refetchInterval: 10000,
   });
+
+  // Check for saved user session on mount
+  useEffect(() => {
+    const savedUser = localStorage.getItem('chatUser');
+    if (savedUser) {
+      try {
+        const user = JSON.parse(savedUser);
+        setCurrentUser(user);
+        setShowLoginModal(false);
+      } catch (error) {
+        console.error('Failed to parse saved user:', error);
+        localStorage.removeItem('chatUser');
+      }
+    }
+  }, []);
+
+  // Save user to localStorage when currentUser changes
+  useEffect(() => {
+    if (currentUser) {
+      localStorage.setItem('chatUser', JSON.stringify(currentUser));
+    } else {
+      localStorage.removeItem('chatUser');
+    }
+  }, [currentUser]);
 
   const { data: roomMessages = [] } = useQuery<(Message & { replyToMessage?: Message })[]>({
     queryKey: ['/api/rooms', currentRoom?.id, 'messages'],
@@ -78,28 +105,69 @@ export default function Chat() {
     }
   }, [lastMessage, currentRoom?.id]);
 
-  const handleLogin = async () => {
-    if (!username.trim()) return;
+  const handleAuth = async () => {
+    if (!username.trim() || !password.trim()) {
+      alert('Please fill in all fields');
+      return;
+    }
 
+    setIsLoading(true);
     try {
-      const response = await fetch('/api/users', {
+      const endpoint = isRegistering ? '/api/auth/register' : '/api/auth/login';
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: username.trim() }),
+        body: JSON.stringify({ 
+          username: username.trim(), 
+          password: password.trim() 
+        }),
       });
 
       if (response.ok) {
         const user = await response.json();
         setCurrentUser(user);
         setShowLoginModal(false);
+        setPassword(''); // Clear password for security
       } else {
         const error = await response.json();
         alert(error.message);
       }
     } catch (error) {
-      console.error('Login error:', error);
-      alert('Failed to login');
+      console.error('Authentication error:', error);
+      alert(`Failed to ${isRegistering ? 'register' : 'login'}`);
+    } finally {
+      setIsLoading(false);
     }
+  };
+
+  const handleLogout = async () => {
+    if (currentUser) {
+      try {
+        // Call logout API to properly close WebSocket connections and set user offline
+        await fetch('/api/auth/logout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: currentUser.id }),
+        });
+      } catch (error) {
+        console.error('Logout error:', error);
+        // Continue with logout even if API call fails
+      }
+    }
+
+    // Clear local state
+    setCurrentUser(null);
+    setCurrentRoom(null);
+    setMessages([]);
+    setUsername('');
+    setPassword('');
+    setShowLoginModal(true);
+    localStorage.removeItem('chatUser');
+  };
+
+  const toggleAuthMode = () => {
+    setIsRegistering(!isRegistering);
+    setPassword('');
   };
 
   const handleRoomChange = useCallback(async (room: Room) => {
@@ -174,7 +242,9 @@ export default function Chat() {
         <ChatHeader
           room={currentRoom}
           onlineCount={onlineUsers.length}
+          currentUser={currentUser}
           onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
+          onLogout={handleLogout}
         />
 
         <MessageList
@@ -198,23 +268,61 @@ export default function Chat() {
       <Dialog open={showLoginModal} onOpenChange={() => {}}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Welcome to StreamChat</DialogTitle>
+            <DialogTitle>
+              {isRegistering ? 'Create Account' : 'Welcome Back'}
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label htmlFor="username">Choose a username</Label>
+              <Label htmlFor="username">
+                {isRegistering ? 'Choose a username' : 'Username'}
+              </Label>
               <Input
                 id="username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="Enter your username"
-                onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
+                disabled={isLoading}
                 data-testid="input-username"
               />
             </div>
-            <Button onClick={handleLogin} className="w-full" data-testid="button-login">
-              Join Chat
+            <div>
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder={isRegistering ? 'Create a password (min 6 characters)' : 'Enter your password'}
+                onKeyPress={(e) => e.key === 'Enter' && handleAuth()}
+                disabled={isLoading}
+                data-testid="input-password"
+              />
+            </div>
+            <Button 
+              onClick={handleAuth} 
+              className="w-full" 
+              disabled={isLoading}
+              data-testid={isRegistering ? "button-register" : "button-login"}
+            >
+              {isLoading 
+                ? (isRegistering ? 'Creating Account...' : 'Logging in...') 
+                : (isRegistering ? 'Create Account' : 'Login')
+              }
             </Button>
+            <div className="text-center">
+              <Button 
+                variant="link" 
+                onClick={toggleAuthMode}
+                disabled={isLoading}
+                data-testid="button-toggle-auth"
+              >
+                {isRegistering 
+                  ? 'Already have an account? Login' 
+                  : "Don't have an account? Register"
+                }
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

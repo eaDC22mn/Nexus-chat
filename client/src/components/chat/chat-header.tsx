@@ -1,22 +1,28 @@
-import { Room } from '@shared/schema';
+import { Room, User } from '@shared/schema';
+import { Button } from '@/components/ui/button';
+import { LogOut, Menu, Search, Users } from 'lucide-react';
 
 interface ChatHeaderProps {
   room: Room | null;
   onlineCount: number;
+  currentUser: User | null;
   onToggleSidebar?: () => void;
+  onLogout?: () => void;
 }
 
-export function ChatHeader({ room, onlineCount, onToggleSidebar }: ChatHeaderProps) {
+export function ChatHeader({ room, onlineCount, currentUser, onToggleSidebar, onLogout }: ChatHeaderProps) {
   return (
     <div className="bg-card border-b border-border p-4 flex items-center justify-between">
       <div className="flex items-center space-x-3">
-        <button 
-          className="lg:hidden text-muted-foreground hover:text-foreground"
+        <Button
+          variant="ghost"
+          size="sm"
+          className="lg:hidden"
           onClick={onToggleSidebar}
           data-testid="button-toggle-sidebar"
         >
-          <i className="fas fa-bars"></i>
-        </button>
+          <Menu className="h-4 w-4" />
+        </Button>
         <div>
           <h2 className="font-semibold" data-testid="text-room-name">
             {room?.name || 'Select a room'}
@@ -27,24 +33,36 @@ export function ChatHeader({ room, onlineCount, onToggleSidebar }: ChatHeaderPro
         </div>
       </div>
       <div className="flex items-center space-x-2">
-        <button 
-          className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors"
+        {currentUser && (
+          <div className="flex items-center space-x-2 mr-4">
+            <span className="text-sm text-muted-foreground" data-testid="text-current-user">
+              Welcome, {currentUser.username}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onLogout}
+              data-testid="button-logout"
+            >
+              <LogOut className="h-4 w-4 mr-1" />
+              Logout
+            </Button>
+          </div>
+        )}
+        <Button
+          variant="ghost"
+          size="sm"
           data-testid="button-search"
         >
-          <i className="fas fa-search"></i>
-        </button>
-        <button 
-          className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors"
+          <Search className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
           data-testid="button-users"
         >
-          <i className="fas fa-users"></i>
-        </button>
-        <button 
-          className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors"
-          data-testid="button-menu"
-        >
-          <i className="fas fa-ellipsis-v"></i>
-        </button>
+          <Users className="h-4 w-4" />
+        </Button>
       </div>
     </div>
   );

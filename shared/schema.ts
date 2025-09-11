@@ -6,6 +6,7 @@ import { z } from "zod";
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   username: text("username").notNull().unique(),
+  password: text("password").notNull(),
   avatar: text("avatar"),
   isOnline: integer("is_online").default(0),
   lastSeen: timestamp("last_seen").defaultNow(),
@@ -45,6 +46,22 @@ export const insertUserSchema = createInsertSchema(users).omit({
   lastSeen: true,
 });
 
+// Authentication schemas
+export const registerSchema = insertUserSchema.extend({
+  password: z.string().min(6, "Password must be at least 6 characters long"),
+});
+
+export const loginSchema = z.object({
+  username: z.string().min(1, "Username is required"),
+  password: z.string().min(1, "Password is required"),
+});
+
+export const userPublicSchema = createInsertSchema(users).omit({
+  id: true,
+  password: true,
+  lastSeen: true,
+});
+
 export const insertRoomSchema = createInsertSchema(rooms).omit({
   id: true,
   createdAt: true,
@@ -69,3 +86,8 @@ export type InsertUser = z.infer<typeof insertUserSchema>;
 export type InsertRoom = z.infer<typeof insertRoomSchema>;
 export type InsertMessage = z.infer<typeof insertMessageSchema>;
 export type InsertRoomMember = z.infer<typeof insertRoomMemberSchema>;
+
+// Authentication types
+export type RegisterUser = z.infer<typeof registerSchema>;
+export type LoginUser = z.infer<typeof loginSchema>;
+export type UserPublic = z.infer<typeof userPublicSchema>;

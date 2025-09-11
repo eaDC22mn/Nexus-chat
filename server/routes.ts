@@ -209,6 +209,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Profile picture upload route
+  app.post("/api/users/:userId/avatar", upload.single('avatar'), async (req: MulterRequest, res) => {
+    try {
+      const { userId } = req.params;
+      const authenticatedUserId = req.headers['x-user-id'] as string;
+      
+      // Security check: Verify user can only update their own avatar
+      if (!authenticatedUserId) {
+        // Clean up uploaded file since request is unauthorized
+        if (req.file) {
+          fs.unlinkSync(req.file.path);
+        }
+        return res.status(401).json({ message: "Authentication required. Please log in to update your profile picture." });
+      }
+      
+      if (authenticatedUserId !== userId) {
+        // Clean up uploaded file since request is unauthorized
+        if (req.file) {
+          fs.unlinkSync(req.file.path);
+        }
+        return res.status(403).json({ message: "Forbidden. You can only update your own profile picture." });
+      }
+      
+      // Verify the user exists
+      const user = await storage.getUser(userId);
+      if (!user) {
+        if (req.file) {
+          fs.unlinkSync(req.file.path);
+        }
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      if (!req.file) {
+        return res.status(400).json({ message: "No avatar file uploaded" });
+      }
+
+      // Validate file is an image
+      const allowedMimes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+      if (!allowedMimes.includes(req.file.mimetype)) {
+        // Delete the uploaded file since it's not valid
+        fs.unlinkSync(req.file.path);
+        return res.status(400).json({ message: "Only image files (JPEG, PNG, GIF, WebP) are allowed for avatars" });
+      }
+
+      // Check file size (2MB limit for avatars)
+      const maxSize = 2 * 1024 * 1024; // 2MB
+      if (req.file.size > maxSize) {
+        fs.unlinkSync(req.file.path);
+        return res.status(400).json({ message: "Avatar file size must be less than 2MB" });
+      }
+
+      // Update user avatar
+      const avatarUrl = `/api/files/${req.file.filename}`;
+      const updatedUser = await storage.updateUserAvatar(userId, avatarUrl);
+      
+      // Return user without password
+      const { password, ...userWithoutPassword } = updatedUser;
+      res.json(userWithoutPassword);
+    } catch (error: any) {
+      // Clean up uploaded file on error
+      if (req.file) {
+        fs.unlinkSync(req.file.path);
+      }
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // Link preview route
   app.post("/api/links/preview", async (req, res) => {
     try {

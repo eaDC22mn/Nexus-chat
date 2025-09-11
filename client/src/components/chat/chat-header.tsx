@@ -1,6 +1,7 @@
 import { Room, User } from '@shared/schema';
 import { Button } from '@/components/ui/button';
 import { LogOut, Menu, Search, Users } from 'lucide-react';
+import { ProfilePicture } from '@/components/ui/profile-picture';
 
 interface ChatHeaderProps {
   room: Room | null;
@@ -34,19 +35,26 @@ export function ChatHeader({ room, onlineCount, currentUser, onToggleSidebar, on
       </div>
       <div className="flex items-center space-x-2">
         {currentUser && (
-          <div className="flex items-center space-x-2 mr-4">
-            <span className="text-sm text-muted-foreground" data-testid="text-current-user">
-              Welcome, {currentUser.username}
-            </span>
-            <Button
-              variant="outline"
+          <div className="flex items-center space-x-3 mr-4">
+            <ProfilePicture 
+              src={currentUser.avatar} 
+              username={currentUser.username} 
               size="sm"
-              onClick={onLogout}
-              data-testid="button-logout"
-            >
-              <LogOut className="h-4 w-4 mr-1" />
-              Logout
-            </Button>
+            />
+            <div className="flex items-center space-x-2">
+              <span className="text-sm text-muted-foreground" data-testid="text-current-user">
+                Welcome, {currentUser.username}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onLogout}
+                data-testid="button-logout"
+              >
+                <LogOut className="h-4 w-4 mr-1" />
+                Logout
+              </Button>
+            </div>
           </div>
         )}
         <Button

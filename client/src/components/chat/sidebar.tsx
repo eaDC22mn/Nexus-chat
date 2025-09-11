@@ -6,11 +6,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { apiRequest } from '@/lib/queryClient';
+import { ProfilePicture } from '@/components/ui/profile-picture';
+import { ProfilePictureUpload } from '@/components/ui/profile-picture-upload';
 
 interface SidebarProps {
   currentRoom: Room | null;
   onRoomChange: (room: Room) => void;
   currentUser: User | null;
+  onUserUpdate?: (user: User) => void;
 }
 
 const roomColors = [
@@ -18,8 +21,9 @@ const roomColors = [
   '#3B82F6', '#06B6D4', '#84CC16', '#F97316', '#EC4899'
 ];
 
-export function Sidebar({ currentRoom, onRoomChange, currentUser }: SidebarProps) {
+export function Sidebar({ currentRoom, onRoomChange, currentUser, onUserUpdate }: SidebarProps) {
   const [isCreateRoomOpen, setIsCreateRoomOpen] = useState(false);
+  const [isProfileSettingsOpen, setIsProfileSettingsOpen] = useState(false);
   const [roomName, setRoomName] = useState('');
   const [roomDescription, setRoomDescription] = useState('');
   const [selectedColor, setSelectedColor] = useState(roomColors[0]);
@@ -84,6 +88,13 @@ export function Sidebar({ currentRoom, onRoomChange, currentUser }: SidebarProps
   const handleStartDirectMessage = (targetUser: User) => {
     if (!currentUser || targetUser.id === currentUser.id) return;
     createDirectMessageMutation.mutate(targetUser.id);
+  };
+
+  const handleAvatarUpdate = (avatarUrl: string) => {
+    if (currentUser && onUserUpdate) {
+      onUserUpdate({ ...currentUser, avatar: avatarUrl });
+    }
+    queryClient.invalidateQueries({ queryKey: ['/api/users/online'] });
   };
 
   return (
@@ -234,11 +245,11 @@ export function Sidebar({ currentRoom, onRoomChange, currentUser }: SidebarProps
                 data-testid={`user-${user.username}`}
               >
                 <div className="relative">
-                  <div className="w-6 h-6 bg-accent rounded-full flex items-center justify-center">
-                    <span className="text-accent-foreground text-xs">
-                      {user.username.slice(0, 2).toUpperCase()}
-                    </span>
-                  </div>
+                  <ProfilePicture 
+                    src={user.avatar} 
+                    username={user.username} 
+                    size="xs"
+                  />
                   <div className="absolute -bottom-0.5 -right-0.5 w-2 h-2 bg-accent rounded-full border border-background"></div>
                 </div>
                 <span className="text-xs font-medium truncate">{user.username}</span>
@@ -261,23 +272,57 @@ export function Sidebar({ currentRoom, onRoomChange, currentUser }: SidebarProps
       {/* User Profile */}
       {currentUser && (
         <div className="p-4 border-t border-border">
-          <div className="flex items-center space-x-3">
-            <div className="relative">
-              <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
-                <span className="text-primary-foreground text-xs font-medium">
-                  {currentUser.username.slice(0, 2).toUpperCase()}
-                </span>
+          <Dialog open={isProfileSettingsOpen} onOpenChange={setIsProfileSettingsOpen}>
+            <DialogTrigger asChild>
+              <div className="flex items-center space-x-3 cursor-pointer hover:bg-muted/50 p-2 rounded-md -m-2 transition-colors">
+                <div className="relative">
+                  <ProfilePicture 
+                    src={currentUser.avatar} 
+                    username={currentUser.username} 
+                    size="sm"
+                  />
+                  <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 online-indicator rounded-full"></div>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{currentUser.username}</p>
+                  <p className="text-xs text-muted-foreground">Online</p>
+                </div>
+                <div className="text-muted-foreground hover:text-foreground transition-colors">
+                  <i className="fas fa-cog text-sm"></i>
+                </div>
               </div>
-              <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 online-indicator rounded-full"></div>
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">{currentUser.username}</p>
-              <p className="text-xs text-muted-foreground">Online</p>
-            </div>
-            <button className="text-muted-foreground hover:text-foreground transition-colors">
-              <i className="fas fa-cog text-sm"></i>
-            </button>
-          </div>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Profile Settings</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-6">
+                <div className="flex flex-col items-center space-y-4">
+                  <ProfilePictureUpload
+                    currentAvatar={currentUser.avatar}
+                    username={currentUser.username}
+                    userId={currentUser.id}
+                    authenticatedUserId={currentUser.id}
+                    onAvatarUpdate={handleAvatarUpdate}
+                    size="lg"
+                  />
+                  <div className="text-center">
+                    <p className="font-medium">{currentUser.username}</p>
+                    <p className="text-sm text-muted-foreground">Online since login</p>
+                  </div>
+                </div>
+                <div className="flex justify-end">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setIsProfileSettingsOpen(false)}
+                    data-testid="button-close-profile"
+                  >
+                    Close
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
       )}
     </div>

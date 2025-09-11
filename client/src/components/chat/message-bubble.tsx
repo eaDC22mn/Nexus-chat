@@ -1,6 +1,7 @@
 import { Message, User } from '@shared/schema';
 import { formatFileSize, getFileIcon, getFileColor, isImageFile } from '@/lib/file-utils';
 import { format } from 'date-fns';
+import { ProfilePicture } from '@/components/ui/profile-picture';
 
 interface FileMetadata {
   id: string;
@@ -69,11 +70,12 @@ export function MessageBubble({ message, user, onReply }: MessageBubbleProps) {
 
   return (
     <div className="chat-bubble flex items-start space-x-3 group relative" data-testid={`message-${message.id}`}>
-      <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center flex-shrink-0">
-        <span className="text-primary-foreground text-xs font-medium">
-          {user?.username?.slice(0, 2).toUpperCase() || 'U'}
-        </span>
-      </div>
+      <ProfilePicture 
+        src={user?.avatar} 
+        username={user?.username || 'Unknown User'} 
+        size="sm"
+        className="flex-shrink-0"
+      />
       <div className="flex-1 min-w-0">
         {/* Reply Context */}
         {message.replyToMessage && (

@@ -170,6 +170,10 @@ export default function Chat() {
     setPassword('');
   };
 
+  const handleUserUpdate = (updatedUser: User) => {
+    setCurrentUser(updatedUser);
+  };
+
   const handleRoomChange = useCallback(async (room: Room) => {
     setCurrentRoom(room);
     setMessages([]);
@@ -236,6 +240,7 @@ export default function Chat() {
         currentRoom={currentRoom}
         onRoomChange={handleRoomChange}
         currentUser={currentUser}
+        onUserUpdate={handleUserUpdate}
       />
 
       <div className="flex-1 flex flex-col">

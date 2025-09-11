@@ -17,6 +17,7 @@ export interface IStorage {
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUserOnlineStatus(id: string, isOnline: number): Promise<void>;
+  updateUserAvatar(id: string, avatarUrl: string): Promise<User>;
   getOnlineUsers(): Promise<PublicUser[]>;
   
   // Authentication operations
@@ -178,6 +179,17 @@ export class MemStorage implements IStorage {
       user.lastSeen = new Date();
       this.users.set(id, user);
     }
+  }
+
+  async updateUserAvatar(id: string, avatarUrl: string): Promise<User> {
+    const user = this.users.get(id);
+    if (!user) {
+      throw new Error("User not found");
+    }
+    
+    user.avatar = avatarUrl;
+    this.users.set(id, user);
+    return user;
   }
 
   async getOnlineUsers(): Promise<PublicUser[]> {

@@ -488,8 +488,10 @@ export function Sidebar({ currentRoom, onRoomChange, currentUser, onUserUpdate }
             ))}
           </div>
         </div>
-     </div>
-       (currentUser && (
+     </div> {/* closes online users section */}
+
+<div>
+  {currentUser && (
     <div className="p-4 border-t border-border">
       <Dialog open={isProfileSettingsOpen} onOpenChange={setIsProfileSettingsOpen}>
         <DialogTrigger asChild>
@@ -543,5 +545,5 @@ export function Sidebar({ currentRoom, onRoomChange, currentUser, onUserUpdate }
         </DialogContent>
       </Dialog>
     </div>
-  ))
-</div>
+  )}
+</div> {/* ✅ this wraps the conditional block properly */}

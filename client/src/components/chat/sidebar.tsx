@@ -489,7 +489,6 @@ export function Sidebar({ currentRoom, onRoomChange, currentUser, onUserUpdate }
           </div>
         </div>
       </div>
-<div>
   {/* User Profile section */}
   {currentUser && (
     <div className="p-4 border-t border-border">

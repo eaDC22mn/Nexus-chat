@@ -452,7 +452,6 @@ export function Sidebar({ currentRoom, onRoomChange, currentUser, onUserUpdate }
               </div>
             ))}
           </div>
-		  ))}
         </div>
 
         {/* Online Users for Direct Messages */}
@@ -490,7 +489,6 @@ export function Sidebar({ currentRoom, onRoomChange, currentUser, onUserUpdate }
           </div>
         </div>
       </div>
-	  ))} // ← this closes the rooms.map expression
 <div>
   {/* User Profile section */}
   {currentUser && (

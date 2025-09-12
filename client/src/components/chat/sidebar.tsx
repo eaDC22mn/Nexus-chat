@@ -489,7 +489,7 @@ export function Sidebar({ currentRoom, onRoomChange, currentUser, onUserUpdate }
           </div>
         </div>
      </div>
-       {currentUser && (
+       (currentUser && (
     <div className="p-4 border-t border-border">
       <Dialog open={isProfileSettingsOpen} onOpenChange={setIsProfileSettingsOpen}>
         <DialogTrigger asChild>

@@ -23,9 +23,12 @@ const roomColors = [
 
 export function Sidebar({ currentRoom, onRoomChange, currentUser, onUserUpdate }: SidebarProps) {
   const [isCreateRoomOpen, setIsCreateRoomOpen] = useState(false);
+  const [isJoinRoomOpen, setIsJoinRoomOpen] = useState(false);
   const [isProfileSettingsOpen, setIsProfileSettingsOpen] = useState(false);
   const [roomName, setRoomName] = useState('');
   const [roomDescription, setRoomDescription] = useState('');
+  const [roomType, setRoomType] = useState('personal');
+  const [joinCode, setJoinCode] = useState('');
   const [selectedColor, setSelectedColor] = useState(roomColors[0]);
   const queryClient = useQueryClient();
 
@@ -55,6 +58,7 @@ export function Sidebar({ currentRoom, onRoomChange, currentUser, onUserUpdate }
       setIsCreateRoomOpen(false);
       setRoomName('');
       setRoomDescription('');
+      setRoomType('personal');
       setSelectedColor(roomColors[0]);
     },
   });
@@ -69,6 +73,30 @@ export function Sidebar({ currentRoom, onRoomChange, currentUser, onUserUpdate }
     },
     onSuccess: (room) => {
       queryClient.invalidateQueries({ queryKey: ['/api/rooms', currentUser?.id] });
+      onRoomChange(room);
+    },
+  });
+
+  const joinRoomMutation = useMutation({
+    mutationFn: async (joinCode: string) => {
+      const response = await fetch('/api/rooms/join-with-code', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Id': currentUser?.id || ''
+        },
+        body: JSON.stringify({ 
+          userId: currentUser?.id, 
+          joinCode 
+        })
+      });
+      if (!response.ok) throw new Error('Failed to join room');
+      return response.json();
+    },
+    onSuccess: (room) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/rooms', currentUser?.id] });
+      setIsJoinRoomOpen(false);
+      setJoinCode('');
       onRoomChange(room);
     },
   });
@@ -121,16 +149,32 @@ export function Sidebar({ currentRoom, onRoomChange, currentUser, onUserUpdate }
     },
   });
 
+  const generateJoinCode = () => {
+    return Math.random().toString(36).substring(2, 8).toUpperCase();
+  };
+
   const handleCreateRoom = () => {
     if (!roomName.trim() || !currentUser) return;
     
-    createRoomMutation.mutate({
+    const roomData: any = {
       name: roomName.trim(),
       description: roomDescription.trim(),
-      type: 'personal',
+      type: roomType,
       color: selectedColor,
       createdBy: currentUser.id,
-    });
+    };
+
+    // Add join code for private rooms
+    if (roomType === 'private') {
+      roomData.joinCode = generateJoinCode();
+    }
+    
+    createRoomMutation.mutate(roomData);
+  };
+
+  const handleJoinRoom = () => {
+    if (!joinCode.trim() || !currentUser) return;
+    joinRoomMutation.mutate(joinCode.trim());
   };
 
   const handleStartDirectMessage = (targetUser: User) => {
@@ -204,69 +248,145 @@ export function Sidebar({ currentRoom, onRoomChange, currentUser, onUserUpdate }
         <div className="pt-4">
           <div className="flex items-center justify-between mb-2 px-3">
             <h3 className="text-xs text-muted-foreground font-medium">ROOMS</h3>
-            <Dialog open={isCreateRoomOpen} onOpenChange={setIsCreateRoomOpen}>
-              <DialogTrigger asChild>
-                <Button 
-                  size="sm" 
-                  variant="ghost" 
-                  className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
-                  data-testid="button-create-room"
-                >
-                  <i className="fas fa-plus text-xs"></i>
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Create New Room</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="room-name">Room Name</Label>
-                    <Input
-                      id="room-name"
-                      value={roomName}
-                      onChange={(e) => setRoomName(e.target.value)}
-                      placeholder="Enter room name"
-                      data-testid="input-room-name"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="room-description">Description</Label>
-                    <Input
-                      id="room-description"
-                      value={roomDescription}
-                      onChange={(e) => setRoomDescription(e.target.value)}
-                      placeholder="Enter room description (optional)"
-                      data-testid="input-room-description"
-                    />
-                  </div>
-                  <div>
-                    <Label>Room Color</Label>
-                    <div className="flex gap-2 mt-2">
-                      {roomColors.map((color) => (
-                        <button
-                          key={color}
-                          type="button"
-                          className={`w-6 h-6 rounded-full border-2 ${
-                            selectedColor === color ? 'border-foreground' : 'border-transparent'
-                          }`}
-                          style={{ backgroundColor: color }}
-                          onClick={() => setSelectedColor(color)}
-                          data-testid={`color-${color}`}
-                        />
-                      ))}
-                    </div>
-                  </div>
+            <div className="flex space-x-1">
+              <Dialog open={isCreateRoomOpen} onOpenChange={setIsCreateRoomOpen}>
+                <DialogTrigger asChild>
                   <Button 
-                    onClick={handleCreateRoom} 
-                    disabled={!roomName.trim() || createRoomMutation.isPending}
-                    data-testid="button-create-room-submit"
+                    size="sm" 
+                    variant="ghost" 
+                    className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
+                    title="Create Room"
+                    data-testid="button-create-room"
                   >
-                    {createRoomMutation.isPending ? 'Creating...' : 'Create Room'}
+                    <i className="fas fa-plus text-xs"></i>
                   </Button>
+                </DialogTrigger>
+              </Dialog>
+              
+              <Dialog open={isJoinRoomOpen} onOpenChange={setIsJoinRoomOpen}>
+                <DialogTrigger asChild>
+                  <Button 
+                    size="sm" 
+                    variant="ghost" 
+                    className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
+                    title="Join Room with Code"
+                    data-testid="button-join-room"
+                  >
+                    <i className="fas fa-sign-in-alt text-xs"></i>
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Join Private Room</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="join-code">Join Code</Label>
+                      <Input
+                        id="join-code"
+                        value={joinCode}
+                        onChange={(e) => setJoinCode(e.target.value)}
+                        placeholder="Enter room join code"
+                        data-testid="input-join-code"
+                      />
+                    </div>
+                    <Button 
+                      onClick={handleJoinRoom} 
+                      disabled={!joinCode.trim() || joinRoomMutation.isPending}
+                      data-testid="button-join-room-submit"
+                    >
+                      {joinRoomMutation.isPending ? 'Joining...' : 'Join Room'}
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
+          </div>
+
+          {/* Create Room Dialog */}
+          <Dialog open={isCreateRoomOpen} onOpenChange={setIsCreateRoomOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Create New Room</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="room-name">Room Name</Label>
+                  <Input
+                    id="room-name"
+                    value={roomName}
+                    onChange={(e) => setRoomName(e.target.value)}
+                    placeholder="Enter room name"
+                    data-testid="input-room-name"
+                  />
                 </div>
-              </DialogContent>
-            </Dialog>
+                <div>
+                  <Label htmlFor="room-description">Description</Label>
+                  <Input
+                    id="room-description"
+                    value={roomDescription}
+                    onChange={(e) => setRoomDescription(e.target.value)}
+                    placeholder="Enter room description (optional)"
+                    data-testid="input-room-description"
+                  />
+                </div>
+                <div>
+                  <Label>Room Type</Label>
+                  <div className="flex gap-2 mt-2">
+                    <button
+                      type="button"
+                      className={`px-3 py-2 text-sm rounded-md border ${
+                        roomType === 'personal' ? 'bg-primary text-primary-foreground' : 'bg-background border-border'
+                      }`}
+                      onClick={() => setRoomType('personal')}
+                      data-testid="room-type-personal"
+                    >
+                      Personal
+                    </button>
+                    <button
+                      type="button"
+                      className={`px-3 py-2 text-sm rounded-md border ${
+                        roomType === 'private' ? 'bg-primary text-primary-foreground' : 'bg-background border-border'
+                      }`}
+                      onClick={() => setRoomType('private')}
+                      data-testid="room-type-private"
+                    >
+                      Private
+                    </button>
+                  </div>
+                  {roomType === 'private' && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Private rooms require a join code to access
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <Label>Room Color</Label>
+                  <div className="flex gap-2 mt-2">
+                    {roomColors.map((color) => (
+                      <button
+                        key={color}
+                        type="button"
+                        className={`w-6 h-6 rounded-full border-2 ${
+                          selectedColor === color ? 'border-foreground' : 'border-transparent'
+                        }`}
+                        style={{ backgroundColor: color }}
+                        onClick={() => setSelectedColor(color)}
+                        data-testid={`color-${color}`}
+                      />
+                    ))}
+                  </div>
+                </div>
+                <Button 
+                  onClick={handleCreateRoom} 
+                  disabled={!roomName.trim() || createRoomMutation.isPending}
+                  data-testid="button-create-room-submit"
+                >
+                  {createRoomMutation.isPending ? 'Creating...' : 'Create Room'}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
           </div>
           <div className="space-y-1">
             {rooms.map((room) => (
@@ -378,14 +498,14 @@ export function Sidebar({ currentRoom, onRoomChange, currentUser, onUserUpdate }
               <div className="flex items-center space-x-3 cursor-pointer hover:bg-muted/50 p-2 rounded-md -m-2 transition-colors">
                 <div className="relative">
                   <ProfilePicture 
-                    src={currentUser.avatar} 
-                    username={currentUser.username} 
+                    src={currentUser?.avatar} 
+                    username={currentUser?.username || ''} 
                     size="sm"
                   />
                   <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 online-indicator rounded-full"></div>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{currentUser.username}</p>
+                  <p className="text-sm font-medium truncate">{currentUser?.username}</p>
                   <p className="text-xs text-muted-foreground">Online</p>
                 </div>
                 <div className="text-muted-foreground hover:text-foreground transition-colors">
@@ -400,15 +520,15 @@ export function Sidebar({ currentRoom, onRoomChange, currentUser, onUserUpdate }
               <div className="space-y-6">
                 <div className="flex flex-col items-center space-y-4">
                   <ProfilePictureUpload
-                    currentAvatar={currentUser.avatar}
-                    username={currentUser.username}
-                    userId={currentUser.id}
-                    authenticatedUserId={currentUser.id}
+                    currentAvatar={currentUser?.avatar}
+                    username={currentUser?.username || ''}
+                    userId={currentUser?.id || ''}
+                    authenticatedUserId={currentUser?.id || ''}
                     onAvatarUpdate={handleAvatarUpdate}
                     size="lg"
                   />
                   <div className="text-center">
-                    <p className="font-medium">{currentUser.username}</p>
+                    <p className="font-medium">{currentUser?.username}</p>
                     <p className="text-sm text-muted-foreground">Online since login</p>
                   </div>
                 </div>

@@ -29,10 +29,12 @@ export interface IStorage {
   // Room operations
   getRoom(id: string): Promise<Room | undefined>;
   getRoomByName(name: string): Promise<Room | undefined>;
+  getRoomByJoinCode(joinCode: string): Promise<Room | undefined>;
   createRoom(room: InsertRoom): Promise<Room>;
   getAllRooms(): Promise<Room[]>;
   getUserRooms(userId: string): Promise<Room[]>;
   getOrCreateDirectRoom(user1Id: string, user2Id: string): Promise<Room>;
+  joinRoomWithCode(userId: string, joinCode: string): Promise<Room>;
 
   // Message operations
   getMessage(id: string): Promise<Message | undefined>;
@@ -211,6 +213,12 @@ export class MemStorage implements IStorage {
     );
   }
 
+  async getRoomByJoinCode(joinCode: string): Promise<Room | undefined> {
+    return Array.from(this.rooms.values()).find(
+      room => room.joinCode === joinCode && room.isActive === 1
+    );
+  }
+
   async createRoom(insertRoom: InsertRoom): Promise<Room> {
     const id = randomUUID();
     const room: Room = { 
@@ -220,6 +228,7 @@ export class MemStorage implements IStorage {
       type: insertRoom.type || 'personal',
       color: insertRoom.color || '#4F46E5',
       createdBy: insertRoom.createdBy || null,
+      joinCode: insertRoom.joinCode || null,
       isActive: insertRoom.isActive || 1,
       createdAt: new Date(),
     };
@@ -294,6 +303,24 @@ export class MemStorage implements IStorage {
         await this.addRoomMember({ roomId: room.id, userId });
       }
     }
+  }
+
+  async joinRoomWithCode(userId: string, joinCode: string): Promise<Room> {
+    const room = await this.getRoomByJoinCode(joinCode);
+    if (!room) {
+      throw new Error('Invalid join code');
+    }
+
+    if (room.type !== 'private') {
+      throw new Error('This room does not require a join code');
+    }
+
+    const isAlreadyMember = await this.isUserInRoom(userId, room.id);
+    if (!isAlreadyMember) {
+      await this.addRoomMember({ roomId: room.id, userId });
+    }
+
+    return room;
   }
 
   async getMessage(id: string): Promise<Message | undefined> {

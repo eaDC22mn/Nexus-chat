@@ -171,6 +171,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/rooms/join-with-code", async (req, res) => {
+    try {
+      const { userId, joinCode } = req.body;
+      const authenticatedUserId = req.headers['x-user-id'] as string;
+
+      // Verify user is authenticated and can only join for themselves
+      if (!authenticatedUserId || authenticatedUserId !== userId) {
+        return res.status(403).json({ message: "Not authorized to join room for this user" });
+      }
+
+      if (!joinCode) {
+        return res.status(400).json({ message: "Join code is required" });
+      }
+
+      const room = await storage.joinRoomWithCode(userId, joinCode);
+      res.json(room);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
   app.post("/api/rooms/:id/leave", async (req, res) => {
     try {
       const { id } = req.params;

@@ -171,6 +171,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/rooms/:id/leave", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { userId } = req.body;
+      const authenticatedUserId = req.headers['x-user-id'] as string;
+
+      // Verify user is authenticated and can only leave their own membership
+      if (!authenticatedUserId || authenticatedUserId !== userId) {
+        return res.status(403).json({ message: "Not authorized to leave room for this user" });
+      }
+
+      await storage.leaveRoom(userId, id);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/rooms/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const authenticatedUserId = req.headers['x-user-id'] as string;
+
+      if (!authenticatedUserId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const success = await storage.deleteRoom(id, authenticatedUserId);
+      if (success) {
+        res.json({ success: true });
+      } else {
+        res.status(404).json({ message: "Room not found" });
+      }
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/rooms/:id/members/:userId", async (req, res) => {
+    try {
+      const { id, userId } = req.params;
+      const authenticatedUserId = req.headers['x-user-id'] as string;
+
+      if (!authenticatedUserId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const success = await storage.removeMemberFromRoom(id, userId, authenticatedUserId);
+      if (success) {
+        res.json({ success: true });
+      } else {
+        res.status(404).json({ message: "Member not found or already removed" });
+      }
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
   // File upload route
   app.post("/api/files/upload", upload.single('file'), async (req: MulterRequest, res) => {
     try {

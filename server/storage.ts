@@ -45,6 +45,9 @@ export interface IStorage {
   getRoomMembers(roomId: string): Promise<PublicUser[]>;
   isUserInRoom(userId: string, roomId: string): Promise<boolean>;
   joinGlobalRooms(userId: string): Promise<void>;
+  leaveRoom(userId: string, roomId: string): Promise<void>;
+  deleteRoom(roomId: string, requestingUserId: string): Promise<boolean>;
+  removeMemberFromRoom(roomId: string, userId: string, requestingUserId: string): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
@@ -357,6 +360,85 @@ export class MemStorage implements IStorage {
     return Array.from(this.roomMembers.values()).some(
       member => member.userId === userId && member.roomId === roomId
     );
+  }
+
+  async leaveRoom(userId: string, roomId: string): Promise<void> {
+    const room = await this.getRoom(roomId);
+    if (!room) return;
+
+    // Don't allow leaving global rooms
+    if (room.type === 'global') {
+      throw new Error('Cannot leave global rooms');
+    }
+
+    // Remove user from room members
+    const memberToRemove = Array.from(this.roomMembers.entries())
+      .find(([_, member]) => member.userId === userId && member.roomId === roomId);
+    
+    if (memberToRemove) {
+      this.roomMembers.delete(memberToRemove[0]);
+    }
+
+    // If this was a direct room and no members left, deactivate it
+    if (room.type === 'direct') {
+      const remainingMembers = await this.getRoomMembers(roomId);
+      if (remainingMembers.length === 0) {
+        room.isActive = 0;
+      }
+    }
+  }
+
+  async deleteRoom(roomId: string, requestingUserId: string): Promise<boolean> {
+    const room = await this.getRoom(roomId);
+    if (!room) return false;
+
+    // Only room creator can delete the room (except global rooms which can't be deleted)
+    if (room.type === 'global') {
+      throw new Error('Cannot delete global rooms');
+    }
+
+    if (room.createdBy !== requestingUserId) {
+      throw new Error('Only the room creator can delete this room');
+    }
+
+    // Remove all members from the room
+    const membersToRemove = Array.from(this.roomMembers.entries())
+      .filter(([_, member]) => member.roomId === roomId);
+    
+    for (const [memberId, _] of membersToRemove) {
+      this.roomMembers.delete(memberId);
+    }
+
+    // Deactivate the room instead of deleting it (to preserve message history)
+    room.isActive = 0;
+    
+    return true;
+  }
+
+  async removeMemberFromRoom(roomId: string, userId: string, requestingUserId: string): Promise<boolean> {
+    const room = await this.getRoom(roomId);
+    if (!room) return false;
+
+    // Only room creator can remove members
+    if (room.createdBy !== requestingUserId) {
+      throw new Error('Only the room creator can remove members');
+    }
+
+    // Don't allow removing members from global rooms
+    if (room.type === 'global') {
+      throw new Error('Cannot remove members from global rooms');
+    }
+
+    // Remove the specified user from room members
+    const memberToRemove = Array.from(this.roomMembers.entries())
+      .find(([_, member]) => member.userId === userId && member.roomId === roomId);
+    
+    if (memberToRemove) {
+      this.roomMembers.delete(memberToRemove[0]);
+      return true;
+    }
+
+    return false;
   }
 }
 

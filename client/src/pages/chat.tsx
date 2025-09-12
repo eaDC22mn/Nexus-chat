@@ -176,7 +176,7 @@ export default function Chat() {
 
   const handleRoomChange = useCallback(async (room: Room) => {
     setCurrentRoom(room);
-    setMessages([]);
+    // Don't clear messages here - let the query load them for the new room
 
     if (currentUser && isConnected) {
       // Join room on server

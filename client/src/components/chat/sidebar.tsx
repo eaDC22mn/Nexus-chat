@@ -73,6 +73,54 @@ export function Sidebar({ currentRoom, onRoomChange, currentUser, onUserUpdate }
     },
   });
 
+  const leaveRoomMutation = useMutation({
+    mutationFn: async (roomId: string) => {
+      const response = await fetch(`/api/rooms/${roomId}/leave`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Id': currentUser?.id || ''
+        },
+        body: JSON.stringify({ userId: currentUser?.id })
+      });
+      if (!response.ok) throw new Error('Failed to leave room');
+      return { roomId };
+    },
+    onSuccess: ({ roomId }) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/rooms', currentUser?.id] });
+      // If user left the current room, redirect to first available global room
+      if (currentRoom?.id === roomId) {
+        const globalRoom = rooms.find(room => room.type === 'global' && room.isActive === 1);
+        if (globalRoom) {
+          onRoomChange(globalRoom);
+        }
+      }
+    },
+  });
+
+  const deleteRoomMutation = useMutation({
+    mutationFn: async (roomId: string) => {
+      const response = await fetch(`/api/rooms/${roomId}`, {
+        method: 'DELETE',
+        headers: {
+          'X-User-Id': currentUser?.id || ''
+        }
+      });
+      if (!response.ok) throw new Error('Failed to delete room');
+      return { roomId };
+    },
+    onSuccess: ({ roomId }) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/rooms', currentUser?.id] });
+      // If user deleted the current room, redirect to first available global room
+      if (currentRoom?.id === roomId) {
+        const globalRoom = rooms.find(room => room.type === 'global' && room.isActive === 1);
+        if (globalRoom) {
+          onRoomChange(globalRoom);
+        }
+      }
+    },
+  });
+
   const handleCreateRoom = () => {
     if (!roomName.trim() || !currentUser) return;
     
@@ -95,6 +143,28 @@ export function Sidebar({ currentRoom, onRoomChange, currentUser, onUserUpdate }
       onUserUpdate({ ...currentUser, avatar: avatarUrl });
     }
     queryClient.invalidateQueries({ queryKey: ['/api/users/online'] });
+  };
+
+  const handleLeaveRoom = (e: React.MouseEvent, room: Room) => {
+    e.stopPropagation();
+    if (!currentUser || room.type === 'global') return;
+    
+    const confirmMessage = room.type === 'direct' 
+      ? `Leave this conversation with ${room.name}?`
+      : `Leave room "${room.name}"?`;
+    
+    if (confirm(confirmMessage)) {
+      leaveRoomMutation.mutate(room.id);
+    }
+  };
+
+  const handleDeleteRoom = (e: React.MouseEvent, room: Room) => {
+    e.stopPropagation();
+    if (!currentUser || room.type === 'global' || room.createdBy !== currentUser.id) return;
+    
+    if (confirm(`Delete room "${room.name}"? This action cannot be undone.`)) {
+      deleteRoomMutation.mutate(room.id);
+    }
   };
 
   return (
@@ -202,7 +272,7 @@ export function Sidebar({ currentRoom, onRoomChange, currentUser, onUserUpdate }
             {rooms.map((room) => (
               <div
                 key={room.id}
-                className={`sidebar-item flex items-center space-x-3 p-2 rounded-md cursor-pointer ${
+                className={`sidebar-item group flex items-center space-x-3 p-2 rounded-md cursor-pointer ${
                   currentRoom?.id === room.id ? 'bg-muted' : ''
                 }`}
                 onClick={() => onRoomChange(room)}
@@ -223,11 +293,42 @@ export function Sidebar({ currentRoom, onRoomChange, currentUser, onUserUpdate }
                     )}
                   </div>
                 </div>
-                {currentRoom?.id === room.id && onlineUsers.length > 0 && (
-                  <span className="ml-auto text-xs bg-primary text-primary-foreground px-1.5 py-0.5 rounded-full">
-                    {onlineUsers.length}
-                  </span>
-                )}
+                
+                {/* Room Management Buttons */}
+                <div className="flex items-center space-x-1">
+                  {currentRoom?.id === room.id && onlineUsers.length > 0 && (
+                    <span className="text-xs bg-primary text-primary-foreground px-1.5 py-0.5 rounded-full">
+                      {onlineUsers.length}
+                    </span>
+                  )}
+                  
+                  {/* Show appropriate management buttons based on room type and ownership */}
+                  <div className="opacity-0 group-hover:opacity-100 transition-opacity flex space-x-1">
+                    {room.type !== 'global' && (
+                      <>
+                        {room.createdBy === currentUser?.id ? (
+                          <button
+                            onClick={(e) => handleDeleteRoom(e, room)}
+                            className="p-1 text-muted-foreground hover:text-destructive transition-colors"
+                            title="Delete room"
+                            data-testid={`delete-room-${room.id}`}
+                          >
+                            <i className="fas fa-trash text-xs"></i>
+                          </button>
+                        ) : (
+                          <button
+                            onClick={(e) => handleLeaveRoom(e, room)}
+                            className="p-1 text-muted-foreground hover:text-foreground transition-colors"
+                            title="Leave room"
+                            data-testid={`leave-room-${room.id}`}
+                          >
+                            <i className="fas fa-sign-out-alt text-xs"></i>
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
               </div>
             ))}
           </div>

@@ -490,7 +490,7 @@ export function Sidebar({ currentRoom, onRoomChange, currentUser, onUserUpdate }
         </div>
       </div>
 
-      {/* User Profile */}
+     {/* User Profile section */}
       {currentUser && (
         <div className="p-4 border-t border-border">
           <Dialog open={isProfileSettingsOpen} onOpenChange={setIsProfileSettingsOpen}>

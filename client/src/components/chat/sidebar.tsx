@@ -488,62 +488,60 @@ export function Sidebar({ currentRoom, onRoomChange, currentUser, onUserUpdate }
             ))}
           </div>
         </div>
-     </div>
+         </div> {/* closes online users section */}
 
-<div>
-  {currentUser && (
-    <div className="p-4 border-t border-border">
-      <Dialog open={isProfileSettingsOpen} onOpenChange={setIsProfileSettingsOpen}>
-        <DialogTrigger asChild>
-          <div className="flex items-center space-x-3 cursor-pointer hover:bg-muted/50 p-2 rounded-md -m-2 transition-colors">
-            <div className="relative">
-              <ProfilePicture 
-                src={currentUser?.avatar} 
-                username={currentUser?.username || ''} 
-                size="sm"
-              />
-              <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 online-indicator rounded-full"></div>
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">{currentUser?.username}</p>
-              <p className="text-xs text-muted-foreground">Online</p>
-            </div>
-            <div className="text-muted-foreground hover:text-foreground transition-colors">
-              <i className="fas fa-cog text-sm"></i>
-            </div>
+        {currentUser && (
+          <div className="p-4 border-t border-border">
+            <Dialog open={isProfileSettingsOpen} onOpenChange={setIsProfileSettingsOpen}>
+              <DialogTrigger asChild>
+                <div className="flex items-center space-x-3 cursor-pointer hover:bg-muted/50 p-2 rounded-md -m-2 transition-colors">
+                  <div className="relative">
+                    <ProfilePicture 
+                      src={currentUser?.avatar} 
+                      username={currentUser?.username || ''} 
+                      size="sm"
+                    />
+                    <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 online-indicator rounded-full"></div>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{currentUser?.username}</p>
+                    <p className="text-xs text-muted-foreground">Online</p>
+                  </div>
+                  <div className="text-muted-foreground hover:text-foreground transition-colors">
+                    <i className="fas fa-cog text-sm"></i>
+                  </div>
+                </div>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Profile Settings</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-6">
+                  <div className="flex flex-col items-center space-y-4">
+                    <ProfilePictureUpload
+                      currentAvatar={currentUser?.avatar}
+                      username={currentUser?.username || ''}
+                      userId={currentUser?.id || ''}
+                      authenticatedUserId={currentUser?.id || ''}
+                      onAvatarUpdate={handleAvatarUpdate}
+                      size="lg"
+                    />
+                    <div className="text-center">
+                      <p className="font-medium">{currentUser?.username}</p>
+                      <p className="text-sm text-muted-foreground">Online since login</p>
+                    </div>
+                  </div>
+                  <div className="flex justify-end">
+                    <Button 
+                      variant="outline" 
+                      onClick={() => setIsProfileSettingsOpen(false)}
+                      data-testid="button-close-profile"
+                    >
+                      Close
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
           </div>
-        </DialogTrigger>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Profile Settings</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-6">
-            <div className="flex flex-col items-center space-y-4">
-              <ProfilePictureUpload
-                currentAvatar={currentUser?.avatar}
-                username={currentUser?.username || ''}
-                userId={currentUser?.id || ''}
-                authenticatedUserId={currentUser?.id || ''}
-                onAvatarUpdate={handleAvatarUpdate}
-                size="lg"
-              />
-              <div className="text-center">
-                <p className="font-medium">{currentUser?.username}</p>
-                <p className="text-sm text-muted-foreground">Online since login</p>
-              </div>
-            </div>
-            <div className="flex justify-end">
-              <Button 
-                variant="outline" 
-                onClick={() => setIsProfileSettingsOpen(false)}
-                data-testid="button-close-profile"
-              >
-                Close
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-    </div>
-  )}
-</div> {/* ✅ this wraps the conditional block properly */}
+        )}

@@ -543,5 +543,5 @@ export function Sidebar({ currentRoom, onRoomChange, currentUser, onUserUpdate }
         </DialogContent>
       </Dialog>
     </div>
-  )}
+  ))
 </div>

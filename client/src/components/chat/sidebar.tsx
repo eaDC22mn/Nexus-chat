@@ -488,7 +488,7 @@ export function Sidebar({ currentRoom, onRoomChange, currentUser, onUserUpdate }
             ))}
           </div>
         </div>
-     </div> {/* closes online users section */}
+     </div>
 
 <div>
   {currentUser && (

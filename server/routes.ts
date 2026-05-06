@@ -1,7 +1,7 @@
 import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
-import { storage } from "./storage";
+import { storage } from "./storage.ts";
 import { insertUserSchema, insertRoomSchema, insertMessageSchema, insertRoomMemberSchema, registerSchema, loginSchema } from "@shared/schema";
 import multer from "multer";
 import path from "path";
